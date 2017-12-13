@@ -12,6 +12,10 @@ node_js:
   - "9"
   - "node"
 
+script: npm run build &&\
+  npm i --no-save webpack@3 extract-text-webpack-plugin && npm run run-test &&\
+  npm i --no-save webpack@2 extract-text-webpack-plugin@2 && npm run run-test
+
 branches:
   except:
     - gh-pages

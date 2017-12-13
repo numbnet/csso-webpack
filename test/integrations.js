@@ -8,7 +8,7 @@ const getWebpackConfig = require('./webpack.config.js');
 const root = join(__dirname, 'integrations');
 const output = join(__dirname, '_out');
 
-describe('Integrations with webpack 2', function() {
+describe('Integrations with webpack@', function() {
     this.timeout(5000);
 
     const cases = fs.readdirSync(root);

@@ -30,6 +30,7 @@
   },
   "scripts": {
     "itest": "npm run build && mocha",
+    "run-test": "mocha",
     "lint": "eslint --cache .",
     "lint-and-tests": "npm run lint && npm run itest",
     "test": "npm run lint-and-tests",
@@ -62,11 +63,9 @@
     "eslint": "^4.9.0",
     "eslint-config-airbnb-base": "^12.1.0",
     "eslint-plugin-import": "^2.7.0",
-    "extract-text-webpack-plugin": "^2.1.0",
     "flowgen": "^1.2.0",
     "mocha": "^4.0.1",
     "pre-commit": "^1.2.2",
-    "rimraf": "^2.6.1",
-    "webpack": "^2.3.3"
+    "rimraf": "^2.6.1"
   }
 }
