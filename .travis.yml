@@ -12,6 +12,10 @@ node_js:
   - "9"
   - "node"
 
+script: npm test && \
+  npm --webpackVersion=3.0.0 --extractWebpackVersion=3.0.0 test &&\
+  npm --webpackVersion=3 --extractWebpackVersion=3 test
+
 branches:
   except:
     - gh-pages

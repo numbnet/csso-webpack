@@ -1,5 +1,4 @@
 const fs = require('fs');
-const async = require('async');
 const join = require('path').join;
 const exec = require('child_process').exec;
 const rimraf = require('rimraf');
@@ -7,18 +6,16 @@ const assert = require('assert');
 
 const root = join(__dirname, 'integrations');
 const output = join(__dirname, '_out');
-
-const versions = [
-    { webpack: '2.3.3', 'extract-text-webpack-plugin': '2.1.0' },
-    { webpack: '3.0.0', 'extract-text-webpack-plugin': '3.0.0' },
-    { webpack: '3', 'extract-text-webpack-plugin': '3' }
-];
-
 const cases = fs.readdirSync(root);
+
+const version = {
+    webpack: process.env.npm_config_webpackversion || '2.3.3',
+    'extract-text-webpack-plugin': process.env.npm_config_extractwebpackversion || '2.1.0'
+};
 
 const install = function(version) {
     return new Promise(function (resolve, reject) {
-        const start = ['npm i'];
+        const start = ['npm i --no-save'];
         const cmd = Object.keys(version)
             .map(function (module) {
                 delete require.cache[module];
@@ -36,71 +33,69 @@ const install = function(version) {
     });
 };
 
-async.eachSeries(versions, function (version) {
-    return install(version).then(function () {
-        describe('Integrations with webpack@' + version.webpack, function () {
-            this.timeout(5000);
+install(version).then(function () {
+    describe('Integrations with webpack@' + version.webpack, function () {
+        this.timeout(5000);
 
-            const webpack = require('webpack');
-            const webpackConfig = require('./webpack.config.js');
+        const webpack = require('webpack');
+        const webpackConfig = require('./webpack.config.js');
 
-            rimraf.sync(output);
+        rimraf.sync(output);
 
-            cases.forEach(function (testCase) {
-                it('with ' + testCase + ' test', function () {
-                    return new Promise(function (resolve, reject) {
-                        const outputDirectory = join(output, testCase);
-                        const testDirectory = join(root, testCase);
-                        const configFile = join(testDirectory, 'webpack.config.js');
+        cases.forEach(function (testCase) {
+            it('with ' + testCase + ' test', function () {
+                return new Promise(function (resolve, reject) {
+                    const outputDirectory = join(output, testCase);
+                    const testDirectory = join(root, testCase);
+                    const configFile = join(testDirectory, 'webpack.config.js');
 
-                        var options = webpackConfig({
-                            outputDirectory: outputDirectory,
-                            testDirectory: testDirectory
+                    var options = webpackConfig({
+                        outputDirectory: outputDirectory,
+                        testDirectory: testDirectory
+                    });
+
+                    if (fs.existsSync(configFile)) {
+                        const testConfig = require(configFile);
+                        options = Object.assign({}, options, testConfig, {
+                            output: Object.assign({}, options.output, testConfig.output),
+                            plugins: options.plugins.concat(testConfig.plugins)
                         });
+                    }
 
-                        if (fs.existsSync(configFile)) {
-                            const testConfig = require(configFile);
-                            options = Object.assign({}, options, testConfig, {
-                                output: Object.assign({}, options.output, testConfig.output),
-                                plugins: options.plugins.concat(testConfig.plugins)
-                            });
-                        }
+                    webpack(options, function (err, stats) {
+                        if (err) return reject(err);
+                        if (stats.hasErrors()) return reject(new Error(stats.toString()));
 
-                        webpack(options, function (err, stats) {
+                        const expectedCssExt = 'expected.css';
+
+                        fs.readdir(testDirectory, function (err, files) {
                             if (err) return reject(err);
-                            if (stats.hasErrors()) return reject(new Error(stats.toString()));
 
-                            const expectedCssExt = 'expected.css';
+                            files = files.filter(name => name.endsWith(expectedCssExt));
 
-                            fs.readdir(testDirectory, function (err, files) {
-                                if (err) return reject(err);
+                            assert.ok(files.length > 0, 'Integration test should be with css file');
 
-                                files = files.filter(name => name.endsWith(expectedCssExt));
+                            files.forEach(name => {
+                                const prefix = name.substring(0, name.length - expectedCssExt.length) || '';
+                                const actualName = 'test.' + prefix + 'css';
 
-                                assert.ok(files.length > 0, 'Integration test should be with css file');
+                                const actual = fs.readFileSync(join(outputDirectory, actualName), 'utf-8')
+                                    .replace(/\n$/g, '');
 
-                                files.forEach(name => {
-                                    const prefix = name.substring(0, name.length - expectedCssExt.length) || '';
-                                    const actualName = 'test.' + prefix + 'css';
+                                const expected = fs.readFileSync(join(testDirectory, name), 'utf-8')
+                                    .replace(/\n$/g, '')
+                                    .replace(/%%unit-hash%%/g, stats.hash);
 
-                                    const actual = fs.readFileSync(join(outputDirectory, actualName), 'utf-8')
-                                        .replace(/\n$/g, '');
-
-                                    const expected = fs.readFileSync(join(testDirectory, name), 'utf-8')
-                                        .replace(/\n$/g, '')
-                                        .replace(/%%unit-hash%%/g, stats.hash);
-
-                                    assert.equal(actual, expected,
-                                        'Output ' + testCase + ' — ' + name + ' file isn\'t equals ' + actualName
-                                    );
-                                });
-
-                                resolve();
+                                assert.equal(actual, expected,
+                                    'Output ' + testCase + ' — ' + name + ' file isn\'t equals ' + actualName
+                                );
                             });
+
+                            resolve();
                         });
                     });
                 });
             });
         });
-    }).then(run, run);
-});
+    });
+}).then(run);
